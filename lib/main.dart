@@ -333,6 +333,185 @@ Future<String> _analyzeFile(String filePath) async {
 }
 
 // ═══════════════════════════════════════════════════════════
+// QUALITY ANALYSIS — thêm vào cuối _analyzeFile
+// ═══════════════════════════════════════════════════════════
+
+// Gọi hàm này sau _addFileInfo và các section khác:
+// await _analyzeQuality(buf, filePath);
+
+Future<void> _analyzeQuality(StringBuffer buf, String filePath) async {
+  final ext = _ext(filePath);
+  if (!_imageExts.contains(ext)) return; // chỉ chạy cho ảnh
+
+  buf.writeln('');
+  buf.writeln('========================================');
+
+  try {
+    final file = File(filePath);
+    final bytes = await file.readAsBytes();
+
+    // Decode ảnh sang grayscale để tính toán
+    final original = img.decodeImage(bytes);
+    if (original == null) {
+      buf.writeln('Quality   : // Cannot decode image');
+      return;
+    }
+
+    // Convert sang grayscale
+    final gray = img.grayscale(original);
+    final int width = gray.width;
+    final int height = gray.height;
+    final int totalPixels = width * height;
+
+    // ── Tính Mean (brightness) ──────────────────────────
+    // Scale 0–65535 như ImageMagick (QuantumRange)
+    double sumMean = 0;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final pixel = gray.getPixel(x, y);
+        // Lấy channel red (grayscale nên R=G=B), scale lên 0–65535
+        final luma = img.getLuminance(pixel) / 255.0 * 65535.0;
+        sumMean += luma;
+      }
+    }
+    final double mean = sumMean / totalPixels;
+
+    // ── Tính Standard Deviation (contrast) ─────────────
+    double sumVariance = 0;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final pixel = gray.getPixel(x, y);
+        final luma = img.getLuminance(pixel) / 255.0 * 65535.0;
+        final diff = luma - mean;
+        sumVariance += diff * diff;
+      }
+    }
+    final double variance = sumVariance / totalPixels;
+    final double std = variance > 0 ? sqrt(variance) : 0;
+
+    // ── Tính Skewness (balance/color balance) ──────────
+    double sumCubed = 0;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final pixel = gray.getPixel(x, y);
+        final luma = img.getLuminance(pixel) / 255.0 * 65535.0;
+        final diff = luma - mean;
+        sumCubed += diff * diff * diff;
+      }
+    }
+    final double skewness = std > 0
+        ? (sumCubed / totalPixels) / (std * std * std)
+        : 0;
+
+    // ── Tính Kurtosis ───────────────────────────────────
+    double sumFourth = 0;
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        final pixel = gray.getPixel(x, y);
+        final luma = img.getLuminance(pixel) / 255.0 * 65535.0;
+        final diff = luma - mean;
+        sumFourth += diff * diff * diff * diff;
+      }
+    }
+    final double kurtosis = std > 0
+        ? ((sumFourth / totalPixels) / (std * std * std * std)) - 3
+        : 0;
+
+    // ── Quality (JPEG compression level) ───────────────
+    int quality = _estimateJpegQuality(bytes, ext);
+
+    // ── SHA256 ──────────────────────────────────────────
+    final hash = sha256.convert(bytes).toString();
+
+    // ── Verdict ─────────────────────────────────────────
+    final issues = <String>[];
+    if (mean < 13000) {
+      issues.add('Too Dark');
+    } else if (mean > 50000) {
+      issues.add('Too Bright');
+    }
+    if (std < 5000) issues.add('Low Contrast/Blurry');
+    final verdict = issues.isEmpty ? 'Good' : issues.join(', ');
+
+    // ── Filename ────────────────────────────────────────
+    final filename = _basename(filePath);
+
+    // ── Format output giống bash script ─────────────────
+    final brightnessStr = mean.toStringAsFixed(2);
+    final contrastStr   = std.toStringAsFixed(2);
+    final balanceStr    = skewness.toStringAsFixed(2);
+    final qualityStr    = quality >= 0 ? quality.toString() : 'N/A';
+
+    buf.writeln(
+      'Quality   : {@type: Quality, '
+      '$filename | '
+      'Brightness= $brightnessStr | '
+      'Contrast= $contrastStr | '
+      'Balance= $balanceStr | '
+      'Verdict= $verdict | '
+      'Resolution= ${width}x$height | '
+      'Quality= $qualityStr | '
+      'sha256= $hash'
+      '}'
+    );
+
+  } catch (e) {
+    buf.writeln('Quality   : // Error: $e');
+  }
+}
+
+// ── Ước tính JPEG quality từ bytes ──────────────────────────
+// Đọc quantization table từ JPEG header (segment 0xFFDB)
+// Trả về -1 nếu không phải JPEG hoặc không đọc được
+int _estimateJpegQuality(Uint8List bytes, String ext) {
+  if (ext != '.jpg' && ext != '.jpeg') return -1;
+  if (bytes.length < 4) return -1;
+
+  // JPEG magic: FF D8
+  if (bytes[0] != 0xFF || bytes[1] != 0xD8) return -1;
+
+  int i = 2;
+  while (i < bytes.length - 1) {
+    if (bytes[i] != 0xFF) break;
+    final marker = bytes[i + 1];
+
+    // SOF markers (0xC0–0xC3): không chứa quality
+    // DQT marker (0xDB): quantization table
+    if (marker == 0xDB) {
+      if (i + 5 >= bytes.length) break;
+      // Lấy giá trị đầu tiên trong bảng lượng tử (DC luminance)
+      // Standard Luminance Q-table tại quality 50 có giá trị [0] = 16
+      final qtValue = bytes[i + 5].toDouble();
+      if (qtValue <= 0) return 100;
+
+      // Công thức ngược từ JPEG standard:
+      // quality > 50: scale = 200 - 2*quality  → qtValue = round(16 * scale / 100)
+      // quality <= 50: scale = 5000 / quality  → qtValue = round(16 * scale / 100)
+      // Giải ngược: scale = qtValue * 100 / 16
+      final scale = qtValue * 100.0 / 16.0;
+      int q;
+      if (scale >= 100) {
+        q = 1; // quality rất thấp
+      } else if (scale <= 0) {
+        q = 100;
+      } else {
+        // quality > 50: scale = 200 - 2q → q = (200 - scale) / 2
+        q = ((200.0 - scale) / 2.0).round().clamp(1, 100);
+      }
+      return q;
+    }
+
+    // Đọc độ dài segment để nhảy sang segment tiếp
+    if (i + 3 >= bytes.length) break;
+    final segLen = (bytes[i + 2] << 8) | bytes[i + 3];
+    if (segLen < 2) break;
+    i += 2 + segLen;
+  }
+
+  return -1; // không tìm thấy DQT
+}
+
+// ═══════════════════════════════════════════════════════════
 // SHARED HELPERS
 // ═══════════════════════════════════════════════════════════
 
