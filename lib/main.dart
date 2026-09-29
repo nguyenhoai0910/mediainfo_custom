@@ -10,6 +10,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
+
 void main() {
   runApp(const MediaInfoApp());
 }
