@@ -5,8 +5,8 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mediainfo_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
+    namespace = "com.local.mediainfo_app"
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
