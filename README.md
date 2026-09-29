@@ -1,4 +1,4 @@
-# mediainfo_app
+# mediainfo_custom
 
 A new Flutter project.
 
