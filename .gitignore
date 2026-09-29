@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# APK / bản build
+build/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Thư mục chứa file phát hành (nếu bạn tự chép APK vào)
+release/
+outputs/

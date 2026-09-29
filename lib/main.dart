@@ -393,6 +393,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
         children: [_buildPhotoTab(), _buildVideoTab(), _buildDiffTab()],
       ),
     );
