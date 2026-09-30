@@ -21,7 +21,7 @@ class MediaInfoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MediaInfo',
+      title: 'MediaInfo_Custom',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF1E1E1E),
@@ -385,7 +385,7 @@ class _MainScreenState extends State<MainScreen> with SingleTickerProviderStateM
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF2D2D2D),
-        title: const Text('mediainfo', style: TextStyle(fontFamily: 'monospace', fontSize: 16, color: Color(0xFF00FF00), letterSpacing: 2)),
+        title: const Text('mediainfo_custom', style: TextStyle(fontFamily: 'monospace', fontSize: 16, color: Color(0xFF00FF00), letterSpacing: 2)),
         bottom: TabBar(
           controller: _tabController,
           labelStyle: const TextStyle(fontFamily: 'monospace'),
