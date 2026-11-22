@@ -1,6 +1,6 @@
 {
-    "name": "mediainfo_app",
-    "short_name": "mediainfo_app",
+    "name": "mediainfo_custom",
+    "short_name": "mediainfo_custom",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
