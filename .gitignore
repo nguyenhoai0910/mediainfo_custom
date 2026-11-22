@@ -57,3 +57,6 @@ build/
 # Thư mục chứa file phát hành (nếu bạn tự chép APK vào)
 release/
 outputs/
+
+.AppImage
+.deb
