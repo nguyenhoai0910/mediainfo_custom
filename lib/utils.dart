@@ -2,15 +2,33 @@
 // Public helper functions tách ra từ main.dart để có thể unit test được.
 
 import 'dart:io';
-import 'dart:math';
 import 'dart:typed_data';
+
+import 'package:package_info_plus/package_info_plus.dart';
+
+// ---------------------------------------------------------------------------
+// App version
+// ---------------------------------------------------------------------------
+
+Future<String> getAppVersion() async {
+  final info = await PackageInfo.fromPlatform();
+  return info.version;
+}
 
 // ---------------------------------------------------------------------------
 // File extensions
 // ---------------------------------------------------------------------------
 
-const imageExts = {'.jpg', '.jpeg', '.png', '.heic', '.webp', '.tiff', '.tif', '.bmp', '.gif'};
-const videoExts = {'.mp4', '.mov', '.avi', '.mkv', '.m4v', '.wmv', '.flv', '.webm', '.3gp'};
+const imageExts = {
+  '.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp',
+  '.tiff', '.tif', '.bmp', '.gif', '.avif', '.jxl',
+};
+
+const videoExts = {
+  '.mp4', '.mov', '.avi', '.mkv', '.m4v', '.wmv',
+  '.flv', '.webm', '.3gp', '.ts', '.mts', '.m2ts',
+  '.ogv', '.vob',
+};
 
 String fileExt(String filePath) =>
     filePath.contains('.') ? '.${filePath.split('.').last.toLowerCase()}' : '';
